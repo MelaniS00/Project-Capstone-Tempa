@@ -370,9 +370,7 @@ if "Dashboard" in page:
             f'<div class="page-sub">Data harga pangan · {wilayah_filter.title()} · Update: {df_raw["price_date"].max().strftime("%B %Y")}</div>',
             unsafe_allow_html=True
         )
-    with c2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown('<span class="badge-on">● Live Data</span>', unsafe_allow_html=True)
+    
  
     # Metric cards
     selected = komoditas_filter if komoditas_filter else ["Beras", "Cabai", "Telur", "Minyak Goreng"]
