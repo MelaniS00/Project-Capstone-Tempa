@@ -398,7 +398,7 @@ with st.sidebar:
     st.markdown("**NAVIGASI**")
     page = st.radio(
         "nav",
-        ["🏠  Dashboard", "📈  Prediksi Harga", "🗺️  Peta Wilayah", "🍲  Rekomendasi Resep", "💬  Chatbot LLM", "🕐  Riwayat", "⚙️  Pengaturan"],
+        ["🏠  Dashboard", "📈  Prediksi Harga", "🗺️  Peta Wilayah", "🍲  Rekomendasi Resep", "💬  Chatbot LLM", "📦 Inventory", "🕐  Riwayat", "⚙️  Pengaturan"],
         label_visibility="collapsed"
     )
  
