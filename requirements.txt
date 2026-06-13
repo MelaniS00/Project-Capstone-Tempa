@@ -1,12 +1,18 @@
-# Pustaka dashboard PASTI
+# Library Utama & Visualisasi
 streamlit
 pandas
 numpy
 plotly
-# Untuk memuat model. Bila muncul error saat load .pkl di Streamlit Cloud,
-# samakan versinya dengan yang ada di Colab (lihat catatan di chat).
+
+# Library Machine Learning & Helper
+joblib
 scikit-learn
 xgboost
-joblib
-# Untuk menghitung flag hari besar pada halaman prediksi
 holidays
+
+# Library LLM & LangChain
+langchain
+langchain-core
+langchain-community
+langchain-mistralai
+SQLAlchemy
