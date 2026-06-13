@@ -370,8 +370,13 @@ class RecipeRecommender:
 @st.cache_data
 def load_resep_data():
     try:
-        # Menggunakan raw string (r"...") untuk path Windows lokal
-        path_csv = r"C:\Users\lenov\OneDrive\Documents\dicoding\Project-Capstone-Tempa\data\resep_bersih.csv"
+        # 1. Cari tahu lokasi persis file app.py ini berada
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        
+        # 2. Gabungkan dengan folder 'data' dan nama file CSV
+        path_csv = os.path.join(BASE_DIR, "data", "resep_bersih.csv")
+        
+        # 3. Baca file menggunakan path yang sudah dinamis
         df = pd.read_csv(path_csv)
         
         df['RecipeIngredientParts'] = df['RecipeIngredientParts'].apply(
@@ -379,6 +384,8 @@ def load_resep_data():
         )
         return df
     except Exception as e:
+        # Menampilkan pesan error di terminal/layar jika file tidak ditemukan
+        print(f"Gagal memuat resep_bersih.csv: {e}")
         return None
  
 # ─────────────────────────────────────────────
