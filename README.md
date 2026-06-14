@@ -1,6 +1,6 @@
 # PASTI (Prediksi Harga Pasar Terkini) — Prediksi & Rekomendasi Harga Pangan
 
-[](https://ibb.co.com/vCPR9cND)
+![PASTI  Dahboard](https://i.ibb.co.com/DPCTd1BL/Screenshot-2026-06-14-115840.png)
 
 > 🔗 **Live App:** [pasti-rekomendasi-harga-pangan.streamlit.app](https://pasti-rekomendasi-harga-pangan.streamlit.app/)
 
