@@ -21,7 +21,7 @@ Aplikasi ini memiliki 9 menu utama yang dapat diakses melalui panel navigasi (*s
 - 📦 **Manajemen Gudang** — Modul prediksi kebutuhan suplai inventaris bahan baku (seperti stok ayam) hingga 60 hari ke depan menggunakan model *Time Series* Prophet.
 - 🕐 **Riwayat** — Tabel komprehensif untuk menelusuri data historis harga pangan pasar dari tahun 2007 hingga batas akhir *dataset*.
 - ⚙️ **Pengaturan** — Konfigurasi informasi *dataset*, rincian status model ML, dan diagnostik fitur.
-- 
+  
 ## Resources
 
 ### Tools
