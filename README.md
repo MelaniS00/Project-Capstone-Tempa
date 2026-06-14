@@ -48,6 +48,7 @@
 - **World Bank — Real-Time Food Prices (RTFP), Indonesia** ([microdata.worldbank.org/catalog/6166](https://microdata.worldbank.org/index.php/catalog/6166)) — data harga pangan utama.
 - **Harga Bensin Indonesia** ([Trading Economics](https://id.tradingeconomics.com/indonesia/gasoline-prices)) — fitur indikator ekonomi.
 - **Hari besar nasional Indonesia** — library Python `holidays`.
+- **Resep** ([recipes_data_food.com](https://huggingface.co/datasets/AkashPS11/recipes_data_food.com)) — fitur Rekomendasi Resep pada dashboard
 
 ## Model Overview
 - **Target:** harga komoditas pangan (rupiah).
