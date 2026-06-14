@@ -89,8 +89,13 @@ Atau langsung kunjungi versi online:
 ## Project Structure
 ```
 Project-Capstone-Tempa/
+├── .devcontainer
+│   └── config.toml
 ├── .streamlit/
 │   └── config.toml                       # tema tampilan (light mode)
+├── data
+│   └── pangan.db
+│   └── resep_bersih.csv
 ├── app.py                                # aplikasi dashboard Streamlit
 ├── requirements.txt                      # daftar dependensi
 ├── model_harga_pangan.pkl                # model XGBoost terlatih
