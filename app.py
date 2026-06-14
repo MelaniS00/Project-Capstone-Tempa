@@ -883,9 +883,9 @@ elif "Chatbot LLM" in page:
     def inisialisasi_agen():
         
         # Ambil API key dari Secrets (lokal: file .streamlit/secrets.toml)
-    if "MISTRAL_API_KEY" in st.secrets:
+        if "MISTRAL_API_KEY" in st.secrets:
         os.environ["MISTRAL_API_KEY"] = st.secrets["MISTRAL_API_KEY"]
-    elif not os.environ.get("MISTRAL_API_KEY"):
+        elif not os.environ.get("MISTRAL_API_KEY"):
         st.error("MISTRAL_API_KEY belum diatur. Tambahkan di Streamlit Secrets atau .streamlit/secrets.toml.")
         st.stop()
         
