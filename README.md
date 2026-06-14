@@ -10,11 +10,18 @@
 **PASTI** adalah dashboard berbasis web untuk memantau dan memprediksi harga komoditas pangan pokok di berbagai pasar di Indonesia. Aplikasi ini menggabungkan model machine learning (XGBoost) yang memprediksi harga hingga dua bulan ke depan dengan dashboard interaktif, peta sebaran harga, dan asisten AI berbasis large language model.
 
 ## Key Features
-- 📊 **Overview Dashboard** — ringkasan harga terkini per komoditas beserta perubahan bulanannya.
-- 📈 **Prediksi Harga** — prediksi harga 2 bulan ke depan untuk tiap pasar menggunakan XGBoost (prediksi rekursif).
-- 🗺️ **Peta Harga** — sebaran harga komoditas di pasar-pasar seluruh Indonesia.
-- 🤖 **AI Chatbot** — asisten tanya-jawab seputar harga pangan, ditenagai Mistral AI.
+Aplikasi ini memiliki 9 menu utama yang dapat diakses melalui panel navigasi (*sidebar*):
 
+- 🏠 **Overview Dashboard** — Ringkasan harga terkini per komoditas, perhitungan persentase perubahan bulanan (MoM), grafik tren harga, dan *insight* AI otomatis berdasarkan gejolak pasar.
+- 📈 **Prediksi Harga** — Prediksi harga pangan hingga 2 bulan ke depan secara spesifik untuk tiap pasar menggunakan algoritma XGBoost (prediksi rekursif) dilengkapi visualisasi proyeksi harga.
+- 🗺️ **Peta Wilayah** — Visualisasi spasial interaktif sebaran harga rata-rata komoditas pangan dari seluruh titik pasar di Indonesia.
+- 🧭 **Pencarian Lokasi (Pasar Terdekat & Termurah)** — Fitur berbasis geolokasi (kalkulasi *Haversine*) untuk menemukan rekomendasi rute pasar yang memiliki harga termurah dengan jarak terdekat dari posisi *user*.
+- 🍲 **Rekomendasi Resep** — Sistem cerdas penemuan ide hidangan masakan berdasarkan sisa stok komoditas bahan pangan yang dimiliki di dapur.
+- 💬 **Chatbot LLM** — Asisten AI pintar yang terintegrasi dengan LangChain dan *database* SQL untuk menjawab pertanyaan analitik seputar tren atau data harga melalui kueri *natural language*.
+- 📦 **Manajemen Gudang** — Modul prediksi kebutuhan suplai inventaris bahan baku (seperti stok ayam) hingga 60 hari ke depan menggunakan model *Time Series* Prophet.
+- 🕐 **Riwayat** — Tabel komprehensif untuk menelusuri data historis harga pangan pasar dari tahun 2007 hingga batas akhir *dataset*.
+- ⚙️ **Pengaturan** — Konfigurasi informasi *dataset*, rincian status model ML, dan diagnostik fitur.
+- 
 ## Resources
 
 ### Tools
@@ -27,19 +34,16 @@
 - Python
 
 ### Libraries & Frameworks
-- Streamlit
-- Pandas
-- NumPy
-- Plotly
-- Matplotlib & Seaborn (EDA)
-- Scikit-Learn
-- XGBoost
-- Joblib
-- holidays
+- **Frontend & UI:** Streamlit, Folium, streamlit-folium, Plotly
+- **Data Wrangling:** Pandas, NumPy, Ast
+- **Machine Learning & Time Series:** Scikit-Learn, XGBoost, Joblib, Prophet
+- **LLM & Database Integration:** LangChain (`langchain_community`, `langchain_mistralai`, `langchain_core`), SQLAlchemy
+- **Utility:** holidays
 
 ### Machine Learning
-- **XGBoost Regressor** — model produksi untuk prediksi harga 2 bulan ke depan
-- Pipeline pendukung: LabelEncoder, TimeSeriesSplit, GridSearchCV
+- **XGBoost Regressor** — Model regresi untuk prediksi harga pangan 2 bulan ke depan secara rekursif berbasis geografi dan lag waktu.
+- **Facebook Prophet** — Model *time series* forecasting untuk modul gudang guna mengestimasi suplai bahan baku harian.
+- Pipeline pendukung: LabelEncoder, TimeSeriesSplit, GridSearchCV.
 
 ### LLM / Chatbot API
 - [Mistral AI](https://mistral.ai/) — model `mistral-large-2512`
@@ -49,12 +53,15 @@
 - **Harga Bensin Indonesia** ([Trading Economics](https://id.tradingeconomics.com/indonesia/gasoline-prices)) — fitur indikator ekonomi.
 - **Hari besar nasional Indonesia** — library Python `holidays`.
 - **Resep** ([recipes_data_food.com](https://huggingface.co/datasets/AkashPS11/recipes_data_food.com)) — fitur Rekomendasi Resep pada dashboard
+-  **Inventory** ([Restaurant Inventory Management Dataset]
+  ([https://id.tradingeconomics.com/indonesia/gasoline-prics](https://www.kaggle.com/datasets/sujaldhanwani/restaurant-inventory-management-dataset-100-days))) — fitur prediksi gudang komoditi.
 
 ## Model Overview
 - **Target:** harga komoditas pangan (rupiah).
 - **Fitur:** lag harga (1, 2, dan 12 bulan), rata-rata bergerak (3 & 12 bulan), harga bensin (lag 2 bulan), flag hari besar (Idul Fitri, Imlek, Natal, Tahun Baru), serta lokasi pasar (provinsi, kabupaten, nama pasar).
 - **Horizon:** 2 bulan ke depan (prediksi rekursif).
 - **Rata-rata error (MAPE) pada data uji:** sekitar 3,4%.
+- - **Target Sekunder (Inventaris Gudang):** Model *Prophet* mengestimasi kebutuhan volume (Kg) komoditas di masa mendatang untuk cegah kelangkaan suplai.
 
 ## How to Run Locally
 1. Clone repository
@@ -101,6 +108,7 @@ Project-Capstone-Tempa/
 ├── requirements.txt                      # daftar dependensi
 ├── model_harga_pangan.pkl                # model XGBoost terlatih
 ├── label_encoders.pkl                    # encoder kategori
+├── model_prophet_chicken.json            # Model Prophet terlatih (Gudang/Inventaris)
 ├── dataset_bersih.csv                    # data per-pasar (fitur prediksi)
 ├── IDN_RTFP_mkt_2007_2026-04-08__1_.csv  # data mentah World Bank RTFP
 └── README.md
