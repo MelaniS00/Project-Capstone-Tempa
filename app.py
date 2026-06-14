@@ -884,10 +884,10 @@ elif "Chatbot LLM" in page:
         
         # Ambil API key dari Secrets (lokal: file .streamlit/secrets.toml)
         if "MISTRAL_API_KEY" in st.secrets:
-        os.environ["MISTRAL_API_KEY"] = st.secrets["MISTRAL_API_KEY"]
+            os.environ["MISTRAL_API_KEY"] = st.secrets["MISTRAL_API_KEY"]
         elif not os.environ.get("MISTRAL_API_KEY"):
-        st.error("MISTRAL_API_KEY belum diatur. Tambahkan di Streamlit Secrets atau .streamlit/secrets.toml.")
-        st.stop()
+            st.error("MISTRAL_API_KEY belum diatur. Tambahkan di Streamlit Secrets atau .streamlit/secrets.toml.")
+            st.stop()
         
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
         db_path_str = os.path.join(BASE_DIR, "data", "pangan.db")
