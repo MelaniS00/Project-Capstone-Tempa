@@ -861,7 +861,6 @@ elif "lokasi" in page:
 
     if user_lat is not None and user_lon is not None:
         
-        # Filter dataframe sesuai periode bulan & tahun yang dipilih
         df_filter = df_raw[
             (df_raw['periode_str'] == periode_lok) & 
             (df_raw[col_target].notna())
@@ -873,57 +872,65 @@ elif "lokasi" in page:
             st.warning(f"Wah, data harga {kom_lok} untuk bulan {periode_lok} tidak tersedia di dataset. Coba ganti bulan/tahun yang lain.")
         else:
             with st.spinner("Sedang mencari pasar termurah di sekitarmu..."):
+                # Hitung jarak semua pasar
                 df_filter['Jarak (km)'] = df_filter.apply(
                     lambda row: hitung_jarak(user_lat, user_lon, row['lat'], row['lon']), axis=1
                 )
 
-                df_top = df_filter.sort_values(by=[col_target, 'Jarak (km)'], ascending=[True, True]).head(4)
+                # FILTER MAKSIMAL 20 KM
+                df_filter = df_filter[df_filter['Jarak (km)'] <= 20]
 
-                st.markdown('<br><div class="sec-title">🏆 4 Pasar Rekomendasi Terbaik</div>', unsafe_allow_html=True)
-                
-                cols = st.columns(4)
-                for i, (_, row) in enumerate(df_top.iterrows()):
-                    with cols[i]:
-                        st.markdown(f"""
-                        <div class="metric-card">
-                            <div class="metric-label">{row['mkt_name']}</div>
-                            <div class="metric-value" style="font-size:20px;">Rp {row[col_target]:,.0f}</div>
-                            <div class="chg-nt">🗺️ Berjarak {row['Jarak (km)']:.1f} km</div>
-                            <div class="chg-nt" style="font-size:11px; margin-top:2px;">{row['adm1_name'].title()}</div>
-                        </div>""", unsafe_allow_html=True)
+                if df_filter.empty:
+                    st.warning("⚠️ Maaf, tidak ditemukan pasar dalam radius 20 km dari lokasi Anda untuk komoditas dan waktu tersebut. Silakan coba lokasi atau periode lain.")
+                else:
+                    
+                    df_top = df_filter.sort_values(by=[col_target, 'Jarak (km)'], ascending=[True, True]).head(4)
 
-                st.markdown('<br><div class="sec-title">🗺️ Rute Geografis Pasar</div>', unsafe_allow_html=True)
-                
-                fig_hasil = go.Figure()
-                
-                fig_hasil.add_trace(go.Scattermapbox(
-                    lat=df_top['lat'], lon=df_top['lon'],
-                    mode="markers+text",
-                    marker=dict(size=14, color=info_lok["warna"]),
-                    text=df_top['mkt_name'],
-                    textposition="bottom right",
-                    hoverinfo="text",
-                    hovertext=[f"<b>{r['mkt_name']}</b><br>Rp {r[col_target]:,.0f}<br>Jarak: {r['Jarak (km)']:.1f} km" for _, r in df_top.iterrows()],
-                    name="Pasar Rekomendasi"
-                ))
-                
-                fig_hasil.add_trace(go.Scattermapbox(
-                    lat=[user_lat], lon=[user_lon],
-                    mode="markers",
-                    marker=dict(size=16, color="#2563eb", symbol="circle"),
-                    hoverinfo="text",
-                    hovertext="📍 Lokasi Kamu",
-                    name="Lokasi Kamu"
-                ))
-                
-                fig_hasil.update_layout(
-                    mapbox_style="carto-positron",
-                    mapbox=dict(center=dict(lat=user_lat, lon=user_lon), zoom=6.5),
-                    height=400, margin=dict(l=0, r=0, t=0, b=0),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0)
-                )
-                
-                st.plotly_chart(fig_hasil, use_container_width=True, config={"displayModeBar": False})
+                    st.markdown('<br><div class="sec-title">🏆 Pasar Rekomendasi Terbaik (Radius < 20 KM)</div>', unsafe_allow_html=True)
+                    
+                    cols = st.columns(4)
+                    for i, (_, row) in enumerate(df_top.iterrows()):
+                        with cols[i]:
+                            st.markdown(f"""
+                            <div class="metric-card">
+                                <div class="metric-label">{row['mkt_name']}</div>
+                                <div class="metric-value" style="font-size:20px;">Rp {row[col_target]:,.0f}</div>
+                                <div class="chg-nt">🗺️ Berjarak {row['Jarak (km)']:.1f} km</div>
+                                <div class="chg-nt" style="font-size:11px; margin-top:2px;">{row['adm1_name'].title()}</div>
+                            </div>""", unsafe_allow_html=True)
+
+                    st.markdown('<br><div class="sec-title">🗺️ Rute Geografis Pasar</div>', unsafe_allow_html=True)
+                    
+                    fig_hasil = go.Figure()
+                    
+                    fig_hasil.add_trace(go.Scattermapbox(
+                        lat=df_top['lat'], lon=df_top['lon'],
+                        mode="markers+text",
+                        marker=dict(size=14, color=info_lok["warna"]),
+                        text=df_top['mkt_name'],
+                        textposition="bottom right",
+                        hoverinfo="text",
+                        hovertext=[f"<b>{r['mkt_name']}</b><br>Rp {r[col_target]:,.0f}<br>Jarak: {r['Jarak (km)']:.1f} km" for _, r in df_top.iterrows()],
+                        name="Pasar Rekomendasi"
+                    ))
+                    
+                    fig_hasil.add_trace(go.Scattermapbox(
+                        lat=[user_lat], lon=[user_lon],
+                        mode="markers",
+                        marker=dict(size=16, color="#2563eb", symbol="circle"),
+                        hoverinfo="text",
+                        hovertext="📍 Lokasi Kamu",
+                        name="Lokasi Kamu"
+                    ))
+                    
+                    fig_hasil.update_layout(
+                        mapbox_style="carto-positron",
+                        mapbox=dict(center=dict(lat=user_lat, lon=user_lon), zoom=10), # Zoom dibesarkan (misal 10) karena radius 20km itu dekat
+                        height=400, margin=dict(l=0, r=0, t=0, b=0),
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0)
+                    )
+                    
+                    st.plotly_chart(fig_hasil, use_container_width=True, config={"displayModeBar": False})
  
 # ─────────────────────────────────────────────
 #  HALAMAN: REKOMENDASI RESEP
