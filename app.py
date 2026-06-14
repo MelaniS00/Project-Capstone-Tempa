@@ -5,6 +5,8 @@ import plotly.graph_objects as go
 import joblib
 import ast
 import os
+import json
+import math
 
 from datetime import datetime
 from langchain_community.utilities import SQLDatabase
@@ -15,6 +17,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from operator import itemgetter
+from prophet.serialize import model_from_json
  
 # ─────────────────────────────────────────────
 #  PAGE CONFIG
@@ -200,6 +203,21 @@ try:
 except FileNotFoundError:
     st.error("⚠️ File CSV tidak ditemukan! Pastikan **IDN_RTFP_mkt_2007_2026-04-08__1_.csv** ada di folder yang sama dengan app.py")
     st.stop()
+
+# ─────────────────────────────────────────────
+#  LOAD DATA DARI inventory  
+# ─────────────────────────────────────────────
+@st.cache_resource
+def load_prophet_model(filename="model_prophet_chicken.json"):
+    """Memuat model Prophet dari file JSON"""
+    try:
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        path_json = os.path.join(BASE_DIR, filename)
+        with open(path_json, 'r') as fin:
+            model = model_from_json(json.load(fin))
+        return model
+    except Exception as e:
+        return None
  
 # ─────────────────────────────────────────────
 #  MAPPING KOMODITAS
@@ -250,6 +268,16 @@ def hitung_pct_change(provinsi, kolom):
     if prev == 0:
         return 0
     return round((curr - prev) / prev * 100, 1)
+
+def hitung_jarak(lat1, lon1, lat2, lon2):
+    """Menghitung jarak dua titik koordinat (dalam km) menggunakan formula Haversine."""
+    R = 6371.0 # Radius bumi dalam kilometer
+    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+    c = 2 * math.asin(math.sqrt(a))
+    return R * c
  
 # ─────────────────────────────────────────────
 #  MODEL ML — LOADER & FORECAST ASLI
@@ -370,13 +398,10 @@ class RecipeRecommender:
 @st.cache_data
 def load_resep_data():
     try:
-        # 1. Cari tahu lokasi persis file app.py ini berada
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
         
-        # 2. Gabungkan dengan folder 'data' dan nama file CSV
         path_csv = os.path.join(BASE_DIR, "data", "resep_bersih.csv")
         
-        # 3. Baca file menggunakan path yang sudah dinamis
         df = pd.read_csv(path_csv)
         
         df['RecipeIngredientParts'] = df['RecipeIngredientParts'].apply(
@@ -384,7 +409,6 @@ def load_resep_data():
         )
         return df
     except Exception as e:
-        # Menampilkan pesan error di terminal/layar jika file tidak ditemukan
         print(f"Gagal memuat resep_bersih.csv: {e}")
         return None
  
@@ -795,6 +819,111 @@ elif "Peta" in page:
     else:
         st.warning(f"Data lokasi untuk {kom_peta} tidak tersedia.")
  
+# ─────────────────────────────────────────────
+#  HALAMAN: LOKASI 
+# ─────────────────────────────────────────────
+elif "lokasi" in page:
+    st.markdown('<div class="page-title">🧭 Cari Pasar Terdekat & Termurah</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-sub">Temukan rekomendasi lokasi pasar dengan harga terbaik di sekitarmu berdasarkan bulan dan tahun tertentu.</div>', unsafe_allow_html=True)
+
+    try:
+        import folium
+        from streamlit_folium import st_folium
+    except ImportError:
+        st.error("⚠️ Fitur ini membutuhkan library tambahan. Buka terminal dan jalankan: `pip install folium streamlit-folium`")
+        st.stop()
+
+    c1, c2 = st.columns(2)
+    with c1:
+        kom_lok = st.selectbox("Pilih Komoditas yang Dicari", list(KOMODITAS_MAP.keys()))
+    with c2:
+        # Buat list periode unik dari dataset (Bulan Tahun)
+        df_raw['periode_str'] = df_raw['price_date'].dt.strftime('%B %Y')
+        list_periode = df_raw['price_date'].sort_values(ascending=False).dt.strftime('%B %Y').unique()
+        periode_lok = st.selectbox("Pilih Waktu (Bulan & Tahun)", list_periode)
+
+    info_lok = KOMODITAS_MAP[kom_lok]
+    col_target = info_lok["col"]
+
+    st.markdown('<div class="sec-title" style="margin-top: 16px;">📍 Tentukan Lokasi Anda</div>', unsafe_allow_html=True)
+    st.info("Klik area mana saja pada peta di bawah ini untuk mengatur titik lokasi kamu saat ini.")
+    
+    m = folium.Map(location=[-2.5, 117.5], zoom_start=5)
+    m.add_child(folium.LatLngPopup()) # Pop-up ajaib penangkap lat/lon
+    
+    map_data = st_folium(m, height=350, use_container_width=True)
+    
+    user_lat, user_lon = None, None
+    if map_data.get("last_clicked"):
+        user_lat = map_data["last_clicked"]["lat"]
+        user_lon = map_data["last_clicked"]["lng"]
+        st.success(f"✅ Lokasi kamu terekam di Koordinat: {user_lat:.4f}, {user_lon:.4f}")
+
+    if user_lat is not None and user_lon is not None:
+        
+        # Filter dataframe sesuai periode bulan & tahun yang dipilih
+        df_filter = df_raw[
+            (df_raw['periode_str'] == periode_lok) & 
+            (df_raw[col_target].notna())
+        ].copy()
+
+        df_filter = df_filter.groupby(['mkt_name', 'adm1_name', 'lat', 'lon'])[col_target].mean().reset_index()
+
+        if df_filter.empty:
+            st.warning(f"Wah, data harga {kom_lok} untuk bulan {periode_lok} tidak tersedia di dataset. Coba ganti bulan/tahun yang lain.")
+        else:
+            with st.spinner("Sedang mencari pasar termurah di sekitarmu..."):
+                df_filter['Jarak (km)'] = df_filter.apply(
+                    lambda row: hitung_jarak(user_lat, user_lon, row['lat'], row['lon']), axis=1
+                )
+
+                df_top = df_filter.sort_values(by=[col_target, 'Jarak (km)'], ascending=[True, True]).head(4)
+
+                st.markdown('<br><div class="sec-title">🏆 4 Pasar Rekomendasi Terbaik</div>', unsafe_allow_html=True)
+                
+                cols = st.columns(4)
+                for i, (_, row) in enumerate(df_top.iterrows()):
+                    with cols[i]:
+                        st.markdown(f"""
+                        <div class="metric-card">
+                            <div class="metric-label">{row['mkt_name']}</div>
+                            <div class="metric-value" style="font-size:20px;">Rp {row[col_target]:,.0f}</div>
+                            <div class="chg-nt">🗺️ Berjarak {row['Jarak (km)']:.1f} km</div>
+                            <div class="chg-nt" style="font-size:11px; margin-top:2px;">{row['adm1_name'].title()}</div>
+                        </div>""", unsafe_allow_html=True)
+
+                st.markdown('<br><div class="sec-title">🗺️ Rute Geografis Pasar</div>', unsafe_allow_html=True)
+                
+                fig_hasil = go.Figure()
+                
+                fig_hasil.add_trace(go.Scattermapbox(
+                    lat=df_top['lat'], lon=df_top['lon'],
+                    mode="markers+text",
+                    marker=dict(size=14, color=info_lok["warna"]),
+                    text=df_top['mkt_name'],
+                    textposition="bottom right",
+                    hoverinfo="text",
+                    hovertext=[f"<b>{r['mkt_name']}</b><br>Rp {r[col_target]:,.0f}<br>Jarak: {r['Jarak (km)']:.1f} km" for _, r in df_top.iterrows()],
+                    name="Pasar Rekomendasi"
+                ))
+                
+                fig_hasil.add_trace(go.Scattermapbox(
+                    lat=[user_lat], lon=[user_lon],
+                    mode="markers",
+                    marker=dict(size=16, color="#2563eb", symbol="circle"),
+                    hoverinfo="text",
+                    hovertext="📍 Lokasi Kamu",
+                    name="Lokasi Kamu"
+                ))
+                
+                fig_hasil.update_layout(
+                    mapbox_style="carto-positron",
+                    mapbox=dict(center=dict(lat=user_lat, lon=user_lon), zoom=6.5),
+                    height=400, margin=dict(l=0, r=0, t=0, b=0),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0)
+                )
+                
+                st.plotly_chart(fig_hasil, use_container_width=True, config={"displayModeBar": False})
  
 # ─────────────────────────────────────────────
 #  HALAMAN: REKOMENDASI RESEP
@@ -971,6 +1100,124 @@ elif "Chatbot LLM" in page:
                 except Exception as e:
                     st.error(f"Error detail: {e}")
 
+# ─────────────────────────────────────────────
+#  HALAMAN: GUDANG 
+# ─────────────────────────────────────────────
+elif "Gudang" in page:
+    st.markdown('<div class="page-title">📦 Manajemen Gudang & Inventaris</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-sub">Prediksi kebutuhan stok bahan baku restoran menggunakan Machine Learning (Prophet)</div>', unsafe_allow_html=True)
+
+    model_chicken = load_prophet_model("model_prophet_chicken.json")
+
+    if model_chicken is None:
+        st.warning("⚠️ File model_prophet_chicken.json tidak ditemukan. Pastikan file ada di folder yang sama dengan app.py.")
+    else:
+        # UI Input Prediksi
+        c1, c2 = st.columns([1, 2.5])
+        with c1:
+            hari_kedepan = st.slider("Prediksi berapa hari ke depan?", min_value=7, max_value=60, value=30, step=1)
+            prediksi_btn = st.button("Jalankan Prediksi", type="primary", use_container_width=True)
+            
+        with c2:
+            st.info("💡 **Tips:** Geser slider untuk melihat tren kebutuhan stok ayam (Chicken) di masa depan agar bisa merencanakan jadwal pembelian ke supplier.")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        if prediksi_btn or 'forecast_gudang' not in st.session_state:
+            with st.spinner("Memproses prediksi..."):
+                future = model_chicken.make_future_dataframe(periods=hari_kedepan)
+                forecast = model_chicken.predict(future)
+                st.session_state.forecast_gudang = forecast
+                st.session_state.hari_gudang = hari_kedepan
+
+        forecast = st.session_state.forecast_gudang
+        hari_kdpn = st.session_state.hari_gudang
+        
+        forecast_future = forecast.tail(hari_kdpn)
+        total_kebutuhan = forecast_future['yhat'].sum()
+        rata_rata = forecast_future['yhat'].mean()
+        puncak_tgl = forecast_future.loc[forecast_future['yhat'].idxmax(), 'ds']
+
+        # ── Metric cards ──
+        r1, r2, r3 = st.columns(3)
+        with r1:
+            st.markdown(f"""<div class="metric-card">
+                <div class="metric-label">Estimasi Kebutuhan ({hari_kdpn} Hari)</div>
+                <div class="metric-value">{total_kebutuhan:,.1f} Kg</div>
+                <div class="chg-nt">🍗 Komoditas: Ayam (Chicken)</div>
+            </div>""", unsafe_allow_html=True)
+        with r2:
+            st.markdown(f"""<div class="metric-card">
+                <div class="metric-label">Rata-rata Penggunaan</div>
+                <div class="metric-value">{rata_rata:,.1f} Kg/hari</div>
+                <div class="chg-nt">Perkiraan laju konsumsi stok</div>
+            </div>""", unsafe_allow_html=True)
+        with r3:
+            st.markdown(f"""<div class="metric-card">
+                <div class="metric-label">Estimasi Puncak Kebutuhan</div>
+                <div class="metric-value">{puncak_tgl.strftime('%d %b %Y')}</div>
+                <div class="chg-up">↑ Siapkan stok lebih banyak</div>
+            </div>""", unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # ── Chart Plotly 
+        st.markdown('<div class="sec-title">Tren Historis & Prediksi Penggunaan</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sec-sub">Garis oranye menunjukkan prediksi kebutuhan stok harian</div>', unsafe_allow_html=True)
+
+        fig = go.Figure()
+
+        # Data Aktual 
+        hist_data = model_chicken.history
+        hist_data = hist_data.tail(30) 
+        
+        fig.add_trace(go.Scatter(
+            x=hist_data['ds'], y=hist_data['y'],
+            mode="lines+markers",
+            line=dict(color="#9ca3af", width=2),
+            marker=dict(size=4),
+            name="Penggunaan Aktual",
+        ))
+
+        # Data Prediksi
+        fig.add_trace(go.Scatter(
+            x=forecast_future['ds'], y=forecast_future['yhat'],
+            mode="lines+markers",
+            line=dict(color="#E67E22", width=3),
+            marker=dict(size=6),
+            name="Prediksi Kebutuhan",
+        ))
+
+        # Margin of Error
+        fig.add_trace(go.Scatter(
+            x=forecast_future['ds'].tolist() + forecast_future['ds'].tolist()[::-1],
+            y=forecast_future['yhat_upper'].tolist() + forecast_future['yhat_lower'].tolist()[::-1],
+            fill='toself', fillcolor='rgba(230, 126, 34, 0.15)',
+            line=dict(color='rgba(255,255,255,0)'),
+            hoverinfo="skip", showlegend=False,
+            name='Batas Toleransi'
+        ))
+
+        fig.update_layout(
+            height=340, margin=dict(l=0, r=0, t=8, b=0),
+            paper_bgcolor="white", plot_bgcolor="white",
+            font=dict(family="Plus Jakarta Sans", size=12),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+            xaxis=dict(showgrid=False, linecolor="#e5e7eb"),
+            yaxis=dict(showgrid=True, gridcolor="#f3f4f6", tickformat=",", ticksuffix=" Kg", linecolor="#e5e7eb"),
+        )
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+        #  AI Insight Box 
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(f"""<div class="ai-box">
+            <div class="ai-box-title">🤖 Analisis Inventaris Cerdas</div>
+            <div class="ai-box-text">
+            Berdasarkan pola masa lalu, restoran membutuhkan sekitar <b>{total_kebutuhan:,.1f} Kg ayam</b> untuk {hari_kdpn} hari ke depan. 
+            Terlihat bahwa puncak kebutuhan tertinggi diperkirakan jatuh pada <b>{puncak_tgl.strftime('%d %B %Y')}</b>. 
+            Disarankan untuk menjadwalkan pengiriman dari <i>Supplier A / C</i> maksimal 2 hari sebelum tanggal puncak tersebut untuk menghindari kelangkaan stok (Lead Time).
+            </div>
+        </div>""", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
 #  HALAMAN: RIWAYAT
