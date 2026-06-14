@@ -19,5 +19,6 @@ SQLAlchemy
 
 # Lain-lain
 prophet
-folium streamlit-folium
+folium
+streamlit-folium
 
